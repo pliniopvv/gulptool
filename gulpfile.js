@@ -97,9 +97,9 @@ async function deploy(cb) {
 
   var conn = ftp.create({ ...config, parallel: 1, log: gutil.log });
 
-  var globs = ["../publish2/**"];
+  var globs = ["../publish/**"];
 
-  return await src(globs, { base: "../publish2/", buffer: false }).pipe(
+  return await src(globs, { base: "../publish/", buffer: false }).pipe(
     conn.dest("/@app")
   );
 }
