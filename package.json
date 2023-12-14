@@ -1,0 +1,22 @@
+{
+  "name": "tool-build",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "gulpfile.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "gulp": "^4.0.2",
+    "gulp-clean": "^0.4.0",
+    "gulp-exec": "^5.0.0",
+    "gulp-util": "^3.0.8",
+    "gulp-zip": "^6.0.0",
+    "vinyl-ftp": "^0.6.1"
+  }
+}
