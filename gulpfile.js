@@ -5,8 +5,6 @@ import zip from "gulp-zip";
 import { execSync } from "child_process";
 import ftp from "vinyl-ftp";
 import gutil from "gulp-util";
-import AnyFS from "anyfs";
-import Adapter from "anyfs-ftp-adapter";
 config.config();
 
 const { src, dest, series, parallel } = gulp;
@@ -14,75 +12,93 @@ const { src, dest, series, parallel } = gulp;
 /**
  * VARIÁVEIS GLOBAIS
  */
-const ___DIR_FRONTEND = "../frontend";
-const ___DIR_BACKEND = "../backend";
+const ___NAME_FRONTEND = "frontend";
+const ___NAME_BACKEND = "backend"
+
+const ___DIR_FRONTEND = `../${___NAME_FRONTEND}`;
+const ___DIR_BACKEND = `../${___NAME_BACKEND}`;
+const ___CMD_COMPILE_FRONTEND = "ng build --configuration=production";
+const ___CMD_COMPILE_BACKEND = "nest build";
+
 const ___DIR_PUBLISH = "../publish";
-const ___CMD_COMPILE_FRONTEND = "ng build";
-const ___CMD_COMPILE_BACKEND = "npm run build";
+const ___DIR_PUBLISH_FRONTEND = "/frontend";
+const ___DEST_SERVER_SIDE = "/app";
 
 /**
  * compile
  */
 async function compile_frontend(cb) {
-  // "cd ../devplinio && ng build"
-  cb(execSync(`cd ${___DIR_FRONTEND} && ${___CMD_COMPILE_FRONTEND}`));
+  let res = execSync(`cd ${___DIR_FRONTEND} && ${___CMD_COMPILE_FRONTEND}`);
+  // console.log(res.toString());
+  cb();
 }
 gulp.task("compile:frontend", compile_frontend);
 
 async function compile_backend(cb) {
-  // cd ../back2 && npm run build
-  cb(execSync(`cd ${___DIR_BACKEND} && ${___CMD_COMPILE_BACKEND}`));
+  let res = execSync(`cd ${___DIR_BACKEND} && ${___CMD_COMPILE_BACKEND}`);
+  let res2 = execSync(
+    `ncc build ${___DIR_BACKEND}/dist/main.js -o ${___DIR_BACKEND}/dist/ncc`
+  );
+  // console.log(res.toString());
+  cb();
 }
-gulp.task("compile:back", compile_backend);
+gulp.task("compile:backend", compile_backend);
 gulp.task("compile", parallel(compile_frontend, compile_backend));
 
 /**
  * CLEAN
  */
 async function clean_frontend(cb) {
-  return src(`${___DIR_FRONTEND}/dist`, { read: false, allowEmpty: true }).pipe(
-    clean({ force: true })
-  );
+  return await src(`${___DIR_FRONTEND}/dist`, {
+    read: false,
+    allowEmpty: true,
+  }).pipe(clean({ force: true }));
 }
-gulp.task("clean:front", clean_frontend);
+gulp.task("clean:frontend", clean_frontend);
 
 async function clean_backend(cb) {
-  return src(`${___DIR_BACKEND}/dist`, { read: true, allowEmpty: true }).pipe(
+  return await src(`${___DIR_BACKEND}/dist`, {
+    read: true,
+    allowEmpty: true,
+  }).pipe(clean({ force: true }));
+}
+gulp.task("clean:backend", clean_backend);
+async function publish_clean(cb) {
+  return await src(`${___DIR_PUBLISH}`, { read: true, allowEmpty: true }).pipe(
     clean({ force: true })
   );
 }
-gulp.task("clean:back", clean_backend);
-async function prepare_clean(cb) {
-  return src(`${___DIR_PUBLISH}`, { read: true, allowEmpty: true }).pipe(
-    clean({ force: true })
-  );
-}
-gulp.task("prepare:clean", prepare_clean);
-gulp.task("clean", parallel(prepare_clean, clean_backend, clean_frontend));
+gulp.task("publish:clean", publish_clean);
+gulp.task("clean", parallel(publish_clean, clean_backend, clean_frontend));
 
 /**
- * PREPARE "PUBLISH"
+ * publish "PUBLISH"
  */
-async function prepare_frontend(cb) {
-  return src("../devplinio/dist/devplinio/**/*").pipe(
-    dest("../publish/server/public")
+async function publish_frontend(cb) {
+  return await src(`../${___NAME_FRONTEND}/dist/${___NAME_FRONTEND}/**/*`).pipe(
+    dest(`${___DIR_PUBLISH}${___DIR_PUBLISH_FRONTEND}`)
   );
 }
-gulp.task("prepare:front", prepare_frontend);
+gulp.task("publish:frontend", publish_frontend);
 
-async function prepare_backend(cb) {
-  return src("../back2/dist/**/*").pipe(dest("../publish/server"));
+async function publish_backend(cb) {
+  await src(`${___DIR_BACKEND}/.env`).pipe(dest(`${___DIR_PUBLISH}/backend`));
+  return await src(`${___DIR_BACKEND}/dist/ncc/**/*`).pipe(
+    dest(`${___DIR_PUBLISH}/backend`)
+  );
 }
-gulp.task("prepare:back", prepare_backend);
-gulp.task("prepare", series(prepare_backend, prepare_frontend));
+gulp.task("publish:backend", publish_backend);
+gulp.task("publish", series(publish_backend, publish_frontend));
 
 /**
  * ZIP "PUBLISH"
  */
 async function zip_publish(cb) {
-  return src("../publish/**/*").pipe(zip("app-pack.zip")).pipe(dest(".."));
+  return await src(`${___DIR_PUBLISH}/**/*`)
+    .pipe(zip("app-pack.zip"))
+    .pipe(dest(".."));
 }
-gulp.task("prepare:zip", zip_publish);
+gulp.task("publish:zip", zip_publish);
 
 /**
  * FTP "PUBLISH"
@@ -97,16 +113,37 @@ async function deploy(cb) {
 
   var conn = ftp.create({ ...config, parallel: 1, log: gutil.log });
 
-  var globs = ["../publish/**"];
+  var globs = [`${___DIR_PUBLISH}/**/*`, `${___DIR_PUBLISH}/backend/.env`];
 
-  return await src(globs, { base: "../publish/", buffer: false }).pipe(
-    conn.dest("/@app")
-  );
+  return await src(globs, { base: `${___DIR_PUBLISH}/`, buffer: false })
+  .pipe( conn.newer(`${___DEST_SERVER_SIDE}`))
+  .pipe(conn.dest(`${___DEST_SERVER_SIDE}`));
 }
 gulp.task("deploy", deploy);
+async function deploy_force(cb) {
+  const config = {
+    host: process.env.FTP_HOST,
+    user: process.env.FTP_USER,
+    pass: process.env.FTP_PASS,
+    port: 21,
+  };
+
+  var conn = ftp.create({ ...config, parallel: 1, log: gutil.log });
+
+  var globs = [`${___DIR_PUBLISH}/**/*`, `${___DIR_PUBLISH}/backend/.env`];
+
+  return await src(globs, { base: `${___DIR_PUBLISH}/`, buffer: false })
+  .pipe(conn.dest(`${___DEST_SERVER_SIDE}`));
+}
+gulp.task("deploy:force", deploy_force);
 
 /**
  * BUILD
  */
-export const build = parallel("compile:frontend", "compile:back");
+// export const build = parallel("compile:frontend", "compile:backend");
+export const build = series(
+  parallel(clean_backend, clean_backend, publish_clean),
+  parallel("compile:frontend", "compile:backend"),
+  parallel(publish_backend, publish_frontend)
+);
 export default build;
