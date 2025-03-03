@@ -12,17 +12,17 @@ const { src, dest, series, parallel } = gulp;
 /**
  * VARIÁVEIS GLOBAIS
  */
-const ___NAME_FRONTEND = "frontend";
-const ___NAME_BACKEND = "backend";
+const ___NAME_FRONTEND = "ekklesia-frontend";
+const ___NAME_BACKEND = "ekklesia-api-nodejs";
 
 const ___DIR_FRONTEND = `../${___NAME_FRONTEND}`;
 const ___DIR_BACKEND = `../${___NAME_BACKEND}`;
-const ___CMD_COMPILE_FRONTEND = "ng build --configuration=production";
+const ___CMD_COMPILE_FRONTEND = "npm run build --emptyOutDir";
 const ___CMD_COMPILE_BACKEND = "nest build";
 
 const ___DIR_PUBLISH = "../publish";
-const ___DIR_PUBLISH_FRONTEND = "/frontend";
-const ___DEST_SERVER_SIDE = "/app";
+const ___DIR_PUBLISH_FRONTEND = "/public";
+const ___DEST_SERVER_SIDE = "/application";
 
 /**
  * compile
@@ -40,7 +40,7 @@ async function compile_backend(cb) {
     `ncc build ${___DIR_BACKEND}/dist/main.js -o ${___DIR_BACKEND}/dist/ncc`
   );
   // console.log(res.toString());
-  console.log("####");
+  //console.log("####");
   setTimeout(cb, 1000);
 }
 gulp.task("compile:backend", compile_backend);
@@ -76,16 +76,16 @@ gulp.task("clean", parallel(publish_clean, clean_backend, clean_frontend));
  * publish "PUBLISH"
  */
 async function publish_frontend(cb) {
-  return await src(`../${___NAME_FRONTEND}/dist/${___NAME_FRONTEND}/**/*`).pipe(
+  return await src(`../${___NAME_FRONTEND}/dist/**/*`).pipe(
     dest(`${___DIR_PUBLISH}${___DIR_PUBLISH_FRONTEND}`)
   );
 }
 gulp.task("publish:frontend", publish_frontend);
 
 async function publish_backend(cb) {
-  await src(`${___DIR_BACKEND}/.env`).pipe(dest(`${___DIR_PUBLISH}/backend`));
+  await src(`${___DIR_BACKEND}/.env`, { allowEmpty: true }).pipe(dest(`${___DIR_PUBLISH}/backend`));
   return await src(`${___DIR_BACKEND}/dist/ncc/**/*`).pipe(
-    dest(`${___DIR_PUBLISH}/backend`)
+    dest(`${___DIR_PUBLISH}`)
   );
 }
 gulp.task("publish:backend", publish_backend);
@@ -114,11 +114,12 @@ async function deploy(cb) {
 
   var conn = ftp.create({ ...config, parallel: 1, log: gutil.log });
 
-  var globs = [`${___DIR_PUBLISH}/**/*`, `${___DIR_PUBLISH}/backend/.env`];
+  var globs = [`${___DIR_PUBLISH}/**/*`, `${___DIR_PUBLISH}/.env*`];
 
   return await src(globs, { base: `${___DIR_PUBLISH}/`, buffer: false })
     .pipe(conn.newer(`${___DEST_SERVER_SIDE}`))
-    .pipe(conn.dest(`${___DEST_SERVER_SIDE}`));
+    .pipe(conn.dest(`/`));
+  // .pipe(conn.dest(`${___DEST_SERVER_SIDE}`));
 }
 gulp.task("deploy", deploy);
 async function deploy_force(cb) {
@@ -134,7 +135,8 @@ async function deploy_force(cb) {
   var globs = [`${___DIR_PUBLISH}/**/*`, `${___DIR_PUBLISH}/backend/.env`];
 
   return await src(globs, { base: `${___DIR_PUBLISH}/`, buffer: false }).pipe(
-    conn.dest(`${___DEST_SERVER_SIDE}`)
+    // conn.dest(`${___DEST_SERVER_SIDE}`)
+    conn.dest(`/`)
   );
 }
 gulp.task("deploy:force", deploy_force);
