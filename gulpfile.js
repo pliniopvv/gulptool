@@ -12,8 +12,8 @@ const { src, dest, series, parallel } = gulp;
 /**
  * VARIÁVEIS GLOBAIS
  */
-const ___NAME_FRONTEND = "ekklesia-frontend";
-const ___NAME_BACKEND = "ekklesia-api-nodejs";
+const ___NAME_FRONTEND = "frontend";
+const ___NAME_BACKEND = "backend";
 
 const ___DIR_FRONTEND = `../${___NAME_FRONTEND}`;
 const ___DIR_BACKEND = `../${___NAME_BACKEND}`;
@@ -22,7 +22,11 @@ const ___CMD_COMPILE_BACKEND = "nest build";
 
 const ___DIR_PUBLISH = "../publish";
 const ___DIR_PUBLISH_FRONTEND = "/public";
-const ___DEST_SERVER_SIDE = "/application";
+const ___DEST_SERVER_SIDE = "/sistema";
+
+// BOOLEANOS
+
+const externalSqlite3 = false;
 
 /**
  * compile
@@ -37,7 +41,7 @@ gulp.task("compile:frontend", compile_frontend);
 async function compile_backend(cb) {
   let res = execSync(`cd ${___DIR_BACKEND} && ${___CMD_COMPILE_BACKEND}`);
   let res2 = execSync(
-    `ncc build ${___DIR_BACKEND}/dist/main.js -o ${___DIR_BACKEND}/dist/ncc`
+    `ncc build ${___DIR_BACKEND}/dist/main.js -o ${___DIR_BACKEND}/dist/ncc ${externalSqlite3 ? "--external sqlite3" : ""}`
   );
   // console.log(res.toString());
   //console.log("####");
@@ -83,7 +87,7 @@ async function publish_frontend(cb) {
 gulp.task("publish:frontend", publish_frontend);
 
 async function publish_backend(cb) {
-  await src(`${___DIR_BACKEND}/.env`, { allowEmpty: true }).pipe(dest(`${___DIR_PUBLISH}/backend`));
+  await src(`${___DIR_BACKEND}/.env`, { allowEmpty: true }).pipe(dest(`${___DIR_PUBLISH}/`));
   return await src(`${___DIR_BACKEND}/dist/ncc/**/*`).pipe(
     dest(`${___DIR_PUBLISH}`)
   );
@@ -118,8 +122,8 @@ async function deploy(cb) {
 
   return await src(globs, { base: `${___DIR_PUBLISH}/`, buffer: false })
     .pipe(conn.newer(`${___DEST_SERVER_SIDE}`))
-    .pipe(conn.dest(`/`));
-  // .pipe(conn.dest(`${___DEST_SERVER_SIDE}`));
+    // .pipe(conn.dest(`/`));
+    .pipe(conn.dest(`${___DEST_SERVER_SIDE}`));
 }
 gulp.task("deploy", deploy);
 async function deploy_force(cb) {
@@ -132,7 +136,7 @@ async function deploy_force(cb) {
 
   var conn = ftp.create({ ...config, parallel: 1, log: gutil.log });
 
-  var globs = [`${___DIR_PUBLISH}/**/*`, `${___DIR_PUBLISH}/backend/.env`];
+  var globs = [`${___DIR_PUBLISH}/**/*`, `${___DIR_PUBLISH}/.env`];
 
   return await src(globs, { base: `${___DIR_PUBLISH}/`, buffer: false }).pipe(
     // conn.dest(`${___DEST_SERVER_SIDE}`)
@@ -167,3 +171,35 @@ export const build = series(
   "deploy"
 );
 export default build;
+
+
+
+function make_dist_backend(cb) {
+  let res = execSync(`cd ${___DIR_BACKEND} && ${___CMD_COMPILE_BACKEND}`);
+  return cb();
+}
+async function move_dist_backend_to_publish(cb) {
+  return await src(`${___DIR_BACKEND}/dist/**/*`).pipe(
+    dest(`${___DIR_PUBLISH}`)
+  );
+}
+function make_dist_frontend(cb) {
+  let res = execSync(`cd ${___DIR_FRONTEND} && ${___CMD_COMPILE_FRONTEND}`);
+  return cb();
+}
+async function move_dist_frontend_to_publish(cb) {
+  return await src(`../${___NAME_FRONTEND}/dist/**/*`).pipe(
+    dest(`${___DIR_PUBLISH}${___DIR_PUBLISH_FRONTEND}`)
+  );
+}
+
+async function add_include_to_publish(cb) {
+  return await src(`../includes/**/*`).pipe(
+    dest(`${___DIR_PUBLISH}/includes`)
+  );
+}
+
+gulp.task("make_backend", series(make_dist_backend, move_dist_backend_to_publish));
+gulp.task("make_frontend", series(make_dist_frontend, move_dist_frontend_to_publish));
+gulp.task("add_include_to_publish", add_include_to_publish);
+gulp.task("make_dist", parallel("make_backend", "make_frontend", "add_include_to_publish"));
