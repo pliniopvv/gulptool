@@ -194,12 +194,12 @@ async function move_dist_frontend_to_publish(cb) {
 }
 
 async function add_include_to_publish(cb) {
-  return await src(`../includes/**/*`).pipe(
-    dest(`${___DIR_PUBLISH}/includes`)
+  return await src(`../includes/**/*`, { dot: true }).pipe(
+    dest(`${___DIR_PUBLISH}`)
   );
 }
 
 gulp.task("make_backend", series(make_dist_backend, move_dist_backend_to_publish));
 gulp.task("make_frontend", series(make_dist_frontend, move_dist_frontend_to_publish));
 gulp.task("add_include_to_publish", add_include_to_publish);
-gulp.task("make_dist", parallel("make_backend", "make_frontend", "add_include_to_publish"));
+gulp.task("make_dist", series(parallel("make_backend", "make_frontend"), "add_include_to_publish"));
