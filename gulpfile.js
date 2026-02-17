@@ -80,7 +80,7 @@ gulp.task("clean", parallel(publish_clean, clean_backend, clean_frontend));
  * publish "PUBLISH"
  */
 async function publish_frontend(cb) {
-  return await src(`../${___NAME_FRONTEND}/dist/**/*`).pipe(
+  return await src(`../${___NAME_FRONTEND}/build/client/**/*`).pipe(
     dest(`${___DIR_PUBLISH}${___DIR_PUBLISH_FRONTEND}`)
   );
 }
@@ -93,7 +93,7 @@ async function publish_backend(cb) {
   );
 }
 gulp.task("publish:backend", publish_backend);
-gulp.task("publish", series(publish_backend, publish_frontend));
+gulp.task("publish", series(publish_backend, publish_frontend, add_include_to_publish));
 
 /**
  * ZIP "PUBLISH"
@@ -188,7 +188,7 @@ function make_dist_frontend(cb) {
   return cb();
 }
 async function move_dist_frontend_to_publish(cb) {
-  return await src(`../${___NAME_FRONTEND}/dist/**/*`).pipe(
+  return await src(`../${___NAME_FRONTEND}/build/client/**/*`).pipe(
     dest(`${___DIR_PUBLISH}${___DIR_PUBLISH_FRONTEND}`)
   );
 }
