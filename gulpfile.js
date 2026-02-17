@@ -18,7 +18,7 @@ const ___NAME_BACKEND = "backend";
 const ___DIR_FRONTEND = `../${___NAME_FRONTEND}`;
 const ___DIR_BACKEND = `../${___NAME_BACKEND}`;
 const ___CMD_COMPILE_FRONTEND = "npm run build --emptyOutDir";
-const ___CMD_COMPILE_BACKEND = "nest build";
+const ___CMD_COMPILE_BACKEND = "build.bat";
 
 const ___DIR_PUBLISH = "../publish";
 const ___DIR_PUBLISH_FRONTEND = "/public";
@@ -33,22 +33,16 @@ const externalSqlite3 = false;
  */
 async function compile_frontend(cb) {
   let res = execSync(`cd ${___DIR_FRONTEND} && ${___CMD_COMPILE_FRONTEND}`);
-  // console.log(res.toString());
   setTimeout(cb, 1000);
 }
 gulp.task("compile:frontend", compile_frontend);
 
 async function compile_backend(cb) {
   let res = execSync(`cd ${___DIR_BACKEND} && ${___CMD_COMPILE_BACKEND}`);
-  let res2 = execSync(
-    `ncc build ${___DIR_BACKEND}/dist/main.js -o ${___DIR_BACKEND}/dist/ncc ${externalSqlite3 ? "--external sqlite3" : ""}`
-  );
-  // console.log(res.toString());
-  //console.log("####");
   setTimeout(cb, 1000);
 }
 gulp.task("compile:backend", compile_backend);
-gulp.task("compile", parallel(compile_frontend, compile_backend));
+gulp.task("compile", parallel(compile_frontend, compile_backend, add_include_to_publish));
 
 /**
  * CLEAN
@@ -74,26 +68,7 @@ async function publish_clean(cb) {
   );
 }
 gulp.task("publish:clean", publish_clean);
-gulp.task("clean", parallel(publish_clean, clean_backend, clean_frontend));
-
-/**
- * publish "PUBLISH"
- */
-async function publish_frontend(cb) {
-  return await src(`../${___NAME_FRONTEND}/build/client/**/*`).pipe(
-    dest(`${___DIR_PUBLISH}${___DIR_PUBLISH_FRONTEND}`)
-  );
-}
-gulp.task("publish:frontend", publish_frontend);
-
-async function publish_backend(cb) {
-  await src(`${___DIR_BACKEND}/.env`, { allowEmpty: true }).pipe(dest(`${___DIR_PUBLISH}/`));
-  return await src(`${___DIR_BACKEND}/dist/ncc/**/*`).pipe(
-    dest(`${___DIR_PUBLISH}`)
-  );
-}
-gulp.task("publish:backend", publish_backend);
-gulp.task("publish", series(publish_backend, publish_frontend, add_include_to_publish));
+gulp.task("clean", parallel(publish_clean));
 
 /**
  * ZIP "PUBLISH"
@@ -165,8 +140,6 @@ gulp.task("wait1000", wait);
 export const build = series(
   "clean",
   "compile",
-  "wait1000",
-  "publish",
   "wait1000",
   "deploy"
 );
